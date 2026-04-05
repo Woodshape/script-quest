@@ -69,45 +69,25 @@ public class Game1 : Game
         mage.Stats.AttackRange = 5.0f;
         mage.Stats.Intelligence = 20;
 
-        // --- Enemies ---
-        var goblin1 = new Entity("Goblin_1", EntityTeam.Enemy)
-        {
-            Position = new Vector2(15, 6),
-            Color = Color.OliveDrab,
-            ScriptPath = Path.Combine(_scriptsBasePath, "monsters", "goblin.lua")
-        };
-        goblin1.Stats.MaxHp = 40;
-        goblin1.Stats.Hp = 40;
-        goblin1.Stats.AttackDamage = 8;
-        goblin1.Stats.Speed = 3.0f;
-
-        var goblin2 = new Entity("Goblin_2", EntityTeam.Enemy)
-        {
-            Position = new Vector2(16, 9),
-            Color = Color.DarkOliveGreen,
-            ScriptPath = Path.Combine(_scriptsBasePath, "monsters", "goblin.lua")
-        };
-        goblin2.Stats.MaxHp = 40;
-        goblin2.Stats.Hp = 40;
-        goblin2.Stats.AttackDamage = 8;
-        goblin2.Stats.Speed = 3.0f;
-
-        var goblin3 = new Entity("Goblin_3", EntityTeam.Enemy)
-        {
-            Position = new Vector2(17, 7),
-            Color = Color.DarkGreen,
-            ScriptPath = Path.Combine(_scriptsBasePath, "monsters", "goblin.lua")
-        };
-        goblin3.Stats.MaxHp = 50;
-        goblin3.Stats.Hp = 50;
-        goblin3.Stats.AttackDamage = 10;
-        goblin3.Stats.Speed = 2.5f;
-
         _entityManager.Add(warrior);
         _entityManager.Add(mage);
-        _entityManager.Add(goblin1);
-        _entityManager.Add(goblin2);
-        _entityManager.Add(goblin3);
+
+        // --- Enemies ---
+        for (int i = 0; i < 3; i++)
+        {
+            var goblin = new Entity($"Goblin_{i}", EntityTeam.Enemy)
+            {
+                Position = new Vector2(15+i, 6+i),
+                Color = Color.OliveDrab,
+                ScriptPath = Path.Combine(_scriptsBasePath, "monsters", "goblin.lua")
+            };
+            goblin.Stats.MaxHp = 40 + (10*i);
+            goblin.Stats.Hp = 40 + (10*i);
+            goblin.Stats.AttackDamage = 8;
+            goblin.Stats.Speed = 3.0f;
+
+            _entityManager.Add(goblin);
+        }
 
         base.Initialize();
     }

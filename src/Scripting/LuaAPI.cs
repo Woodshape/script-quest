@@ -56,19 +56,8 @@ public class LuaAPI
 
     public double DistanceTo(Table targetTable)
     {
-        if (targetTable == null) return double.MaxValue;
-
-        // Find the entity by name from the table
-        var name = targetTable.Get("name").String;
-        if (name == null) return double.MaxValue;
-
-        foreach (var entity in _entityManager.Entities)
-        {
-            if (entity.Name == name && entity.IsAlive)
-                return _self.DistanceTo(entity);
-        }
-
-        return double.MaxValue;
+        var target = ResolveEntity(targetTable);
+        return target != null ? _self.DistanceTo(target) : double.MaxValue;
     }
 
     public Table GetAllies(Script script)
@@ -81,23 +70,14 @@ public class LuaAPI
 
     public void MoveTo(double x, double y)
     {
-        _self.PendingAction = new EntityAction
-        {
-            Type = ActionType.MoveTo,
-            TargetPosition = new Microsoft.Xna.Framework.Vector2((float)x, (float)y)
-        };
+        SetMoveAction(new Microsoft.Xna.Framework.Vector2((float)x, (float)y));
     }
 
     public void MoveTowards(Table targetTable)
     {
         var targetEntity = ResolveEntity(targetTable);
-        if (targetEntity == null) return;
-
-        _self.PendingAction = new EntityAction
-        {
-            Type = ActionType.MoveTo,
-            TargetPosition = targetEntity.Position
-        };
+        if (targetEntity != null)
+            SetMoveAction(targetEntity.Position);
     }
 
     public void MoveAwayFrom(Table targetTable)
@@ -109,18 +89,13 @@ public class LuaAPI
         if (direction.LengthSquared() > 0)
         {
             direction.Normalize();
-            var fleeTarget = _self.Position + direction * _self.Stats.Speed;
-            _self.PendingAction = new EntityAction
-            {
-                Type = ActionType.MoveTo,
-                TargetPosition = fleeTarget
-            };
+            SetMoveAction(_self.Position + direction * _self.Stats.Speed);
         }
     }
 
     // === Combat ===
 
-    public void Attack(Table targetTable)
+    public void SetAttackAction(Table targetTable)
     {
         var targetEntity = ResolveEntity(targetTable);
         if (targetEntity == null) return;
@@ -133,6 +108,15 @@ public class LuaAPI
     }
 
     // === Helpers ===
+
+    private void SetMoveAction(Microsoft.Xna.Framework.Vector2 target)
+    {
+        _self.PendingAction = new EntityAction
+        {
+            Type = ActionType.MoveTo,
+            TargetPosition = target
+        };
+    }
 
     private Entity ResolveEntity(Table table)
     {
@@ -195,7 +179,7 @@ public class LuaAPI
         self["move_away_from"] = (Action<Table>)MoveAwayFrom;
 
         // Combat
-        self["attack"] = (Action<Table>)Attack;
+        self["attack"] = (Action<Table>)SetAttackAction;
 
         // Entity info
         self["name"] = _self.Name;

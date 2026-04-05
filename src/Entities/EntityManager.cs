@@ -36,15 +36,14 @@ public class EntityManager
 
     public List<Entity> GetEnemiesInRange(Entity entity, float range)
     {
-        return _entities
-            .Where(e => e.IsAlive && e.Team != entity.Team && entity.DistanceTo(e) <= range)
+        return GetEnemiesOf(entity)
+            .Where(e => entity.DistanceTo(e) <= range)
             .ToList();
     }
 
     public Entity GetNearestEnemy(Entity entity)
     {
-        return _entities
-            .Where(e => e.IsAlive && e.Team != entity.Team)
+        return GetEnemiesOf(entity)
             .OrderBy(e => entity.DistanceTo(e))
             .FirstOrDefault();
     }

@@ -1,0 +1,20 @@
+## .NET
+bin/
+obj/
+
+## IDE
+.vs/
+.vscode/
+*.user
+*.suo
+
+## MonoGame Content Pipeline
+Content/bin/
+Content/obj/
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Rider
+.idea/

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Microsoft.Xna.Framework;
 using MoonSharp.Interpreter;
 using ScriptQuest.Entities;
 
@@ -70,7 +71,8 @@ public class LuaAPI
 
     public void MoveTo(double x, double y)
     {
-        SetMoveAction(new Microsoft.Xna.Framework.Vector2((float)x, (float)y));
+        Vector2 point = new((float)x, (float)y);
+        SetMoveAction(point);
     }
 
     public void MoveTowards(Table targetTable)
@@ -89,7 +91,7 @@ public class LuaAPI
         if (direction.LengthSquared() > 0)
         {
             direction.Normalize();
-            SetMoveAction(_self.Position + direction * _self.Stats.Speed);
+            SetMoveAction(_self.Position + direction * 1000f); // move to a point far away
         }
     }
 
@@ -109,7 +111,7 @@ public class LuaAPI
 
     // === Helpers ===
 
-    private void SetMoveAction(Microsoft.Xna.Framework.Vector2 target)
+    private void SetMoveAction(Vector2 target)
     {
         _self.PendingAction = new EntityAction
         {
@@ -121,12 +123,12 @@ public class LuaAPI
     private Entity ResolveEntity(Table table)
     {
         if (table == null) return null;
-        var name = table.Get("name").String;
-        if (name == null) return null;
+        var id = table.Get("id").String;
+        if (id == null) return null;
 
         foreach (var entity in _entityManager.Entities)
         {
-            if (entity.Name == name && entity.IsAlive)
+            if (entity.Id == id && entity.IsAlive)
                 return entity;
         }
 
@@ -146,6 +148,7 @@ public class LuaAPI
     private Table EntityToTable(Script script, Entity entity)
     {
         var table = new Table(script);
+        table["id"] = entity.Id;
         table["name"] = entity.Name;
         table["hp"] = entity.Stats.Hp;
         table["max_hp"] = entity.Stats.MaxHp;
@@ -182,6 +185,7 @@ public class LuaAPI
         self["attack"] = (Action<Table>)SetAttackAction;
 
         // Entity info
+        self["id"] = _self.Id;
         self["name"] = _self.Name;
         self["hp"] = _self.Stats.Hp;
         self["max_hp"] = _self.Stats.MaxHp;

@@ -1,3 +1,4 @@
+using System;
 using Microsoft.Xna.Framework;
 
 namespace ScriptQuest.Entities;
@@ -10,6 +11,7 @@ public enum EntityTeam
 
 public class Entity
 {
+    public string Id { get; set; } = Guid.NewGuid().ToString();
     public string Name { get; set; }
     public Vector2 Position { get; set; }
     public Stats Stats { get; }

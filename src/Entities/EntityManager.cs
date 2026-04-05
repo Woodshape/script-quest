@@ -48,6 +48,11 @@ public class EntityManager
             .FirstOrDefault();
     }
 
+    public Entity GetEntityById(string id)
+    {
+        return _entities.FirstOrDefault(e => e.Id.Equals(id));
+    }
+
     /// <summary>
     /// Resolve all pending actions after scripts have run.
     /// </summary>

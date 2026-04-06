@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Xna.Framework;
+using ScriptQuest.Combat;
 
 namespace ScriptQuest.Entities;
 
@@ -54,6 +56,26 @@ public class EntityManager
     }
 
     /// <summary>
+    /// Tick mana regen, cooldowns, and stun counters. Call once per tick before scripts run.
+    /// </summary>
+    public void TickEntities()
+    {
+        foreach (var entity in _entities.Where(e => e.IsAlive))
+        {
+            entity.Stats.Mana = Math.Min(entity.Stats.MaxMana, entity.Stats.Mana + entity.Stats.ManaRegenPerTick);
+
+            if (entity.StunTicksRemaining > 0)
+                entity.StunTicksRemaining--;
+
+            foreach (var key in entity.Cooldowns.Keys.ToList())
+            {
+                if (entity.Cooldowns[key] > 0)
+                    entity.Cooldowns[key]--;
+            }
+        }
+    }
+
+    /// <summary>
     /// Resolve all pending actions after scripts have run.
     /// </summary>
     public void ResolveActions(float tickInterval)
@@ -68,6 +90,9 @@ public class EntityManager
                     break;
                 case ActionType.Attack:
                     ResolveAttack(entity, action.TargetEntity);
+                    break;
+                case ActionType.UseAbility:
+                    ResolveAbility(entity, action);
                     break;
             }
 
@@ -84,6 +109,8 @@ public class EntityManager
             return;
 
         direction.Normalize();
+        entity.LastMoveDirection = direction;
+
         var maxDistance = entity.Stats.Speed * tickInterval;
         var toTarget = target - entity.Position;
 
@@ -101,7 +128,74 @@ public class EntityManager
         if (attacker.DistanceTo(target) > attacker.Stats.AttackRange)
             return;
 
-        int damage = System.Math.Max(1, attacker.Stats.AttackDamage - target.Stats.Armor);
+        int damage = DamageCalculator.Calculate(attacker, target);
         target.Stats.Hp = System.Math.Max(0, target.Stats.Hp - damage);
+    }
+
+    private void ResolveAbility(Entity caster, EntityAction action)
+    {
+        var ability = AbilityDatabase.Get(action.AbilityId);
+        if (ability == null) return;
+
+        caster.Stats.Mana -= ability.ManaCost;
+        caster.Cooldowns[ability.Id] = ability.CooldownTicks;
+
+        switch (ability.EffectType)
+        {
+            case AbilityEffectType.MeleeAttack:
+            case AbilityEffectType.RangedAttack:
+                ResolveAbilityTargeted(caster, action.AbilityTarget, ability);
+                break;
+            case AbilityEffectType.AoEAtPosition:
+                ResolveAbilityAoE(caster, action.AbilityPosition, ability);
+                break;
+            case AbilityEffectType.Heal:
+                ResolveAbilityHeal(caster, action.AbilityTarget, ability);
+                break;
+        }
+    }
+
+    private void ResolveAbilityTargeted(Entity caster, Entity target, Ability ability)
+    {
+        if (target == null || !target.IsAlive) return;
+        if (caster.DistanceTo(target) > ability.Range) return;
+
+        int damage;
+        if (ability.Id == "backstab")
+        {
+            // Behind check: attacker is behind if target's last move direction points away from attacker
+            var toAttacker = caster.Position - target.Position;
+            bool isBehind = target.LastMoveDirection.LengthSquared() > 0 &&
+                            Vector2.Dot(target.LastMoveDirection, toAttacker) > 0;
+            damage = isBehind
+                ? (int)(DamageCalculator.Calculate(caster, target) * 1.5f)
+                : DamageCalculator.Calculate(caster, target);
+        }
+        else
+        {
+            damage = ability.BaseDamage + DamageCalculator.Calculate(caster, target);
+        }
+
+        target.Stats.Hp = Math.Max(0, target.Stats.Hp - damage);
+
+        if (ability.StunTicks > 0)
+            target.StunTicksRemaining = ability.StunTicks;
+    }
+
+    private void ResolveAbilityAoE(Entity caster, Vector2 position, Ability ability)
+    {
+        var targets = GetEnemiesOf(caster)
+            .Where(e => Vector2.Distance(e.Position, position) <= ability.AoERadius);
+
+        foreach (var target in targets)
+            target.Stats.Hp = Math.Max(0, target.Stats.Hp - ability.BaseDamage);
+    }
+
+    private void ResolveAbilityHeal(Entity caster, Entity target, Ability ability)
+    {
+        if (target == null || !target.IsAlive) return;
+        if (caster.DistanceTo(target) > ability.Range) return;
+
+        target.Stats.Hp = Math.Min(target.Stats.MaxHp, target.Stats.Hp + ability.BaseHeal);
     }
 }

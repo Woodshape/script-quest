@@ -27,7 +27,7 @@ public class Entity
     public Color Color { get; set; } = Color.White;
 
     // Pending action from Lua script this tick
-    public EntityAction PendingAction { get; set; }
+    public EntityAction? PendingAction { get; set; }
 
     public Entity(string name, EntityTeam team)
     {

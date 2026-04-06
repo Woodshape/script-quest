@@ -1,3 +1,5 @@
+using System;
+
 namespace ScriptQuest.Combat;
 
 public enum AbilityEffectType
@@ -10,8 +12,8 @@ public enum AbilityEffectType
 
 public class Ability
 {
-    public string Id { get; set; }
-    public string Name { get; set; }
+    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public string Name { get; set; } = string.Empty;
     public int ManaCost { get; set; }
     public int CooldownTicks { get; set; }
     public float Range { get; set; }

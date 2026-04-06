@@ -43,14 +43,14 @@ public class EntityManager
             .ToList();
     }
 
-    public Entity GetNearestEnemy(Entity entity)
+    public Entity? GetNearestEnemy(Entity entity)
     {
         return GetEnemiesOf(entity)
             .OrderBy(e => entity.DistanceTo(e))
             .FirstOrDefault();
     }
 
-    public Entity GetEntityById(string id)
+    public Entity? GetEntityById(string id)
     {
         return _entities.FirstOrDefault(e => e.Id.Equals(id));
     }
@@ -83,6 +83,8 @@ public class EntityManager
         foreach (var entity in _entities.Where(e => e.IsAlive && e.PendingAction != null))
         {
             var action = entity.PendingAction;
+            if (action == null) return; // stupid compiler
+
             switch (action.Type)
             {
                 case ActionType.MoveTo:

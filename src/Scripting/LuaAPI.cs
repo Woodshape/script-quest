@@ -57,7 +57,7 @@ public class LuaAPI
 
     public double DistanceTo(Table targetTable)
     {
-        var target = ResolveEntity(targetTable);
+        var target = GetEntityFromTable(targetTable);
         return target != null ? _self.DistanceTo(target) : double.MaxValue;
     }
 
@@ -77,14 +77,14 @@ public class LuaAPI
 
     public void MoveTowards(Table targetTable)
     {
-        var targetEntity = ResolveEntity(targetTable);
+        var targetEntity = GetEntityFromTable(targetTable);
         if (targetEntity != null)
             SetMoveAction(targetEntity.Position);
     }
 
     public void MoveAwayFrom(Table targetTable)
     {
-        var targetEntity = ResolveEntity(targetTable);
+        var targetEntity = GetEntityFromTable(targetTable);
         if (targetEntity == null) return;
 
         var direction = _self.Position - targetEntity.Position;
@@ -99,7 +99,7 @@ public class LuaAPI
 
     public void SetAttackAction(Table targetTable)
     {
-        var targetEntity = ResolveEntity(targetTable);
+        var targetEntity = GetEntityFromTable(targetTable);
         if (targetEntity == null) return;
 
         _self.PendingAction = new EntityAction
@@ -120,7 +120,7 @@ public class LuaAPI
         };
     }
 
-    private Entity ResolveEntity(Table table)
+    private Entity? GetEntityFromTable(Table table)
     {
         if (table == null) return null;
         var id = table.Get("id").String;

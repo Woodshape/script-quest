@@ -439,6 +439,8 @@ end
 
 ### Step 13: Add Lua logging and lightweight combat log
 
+**Status:** Done
+
 **Actions:**
 
 1. Create `src/Combat/CombatLog.cs`:

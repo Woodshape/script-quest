@@ -2,7 +2,7 @@
 
 **Created:** 2026-04-05
 **Status:** Draft
-**Requirement:** Add abilities, cooldowns, mana regen, stun, and a damage calculator to complete the combat foundation.
+**Requirement:** Add abilities, cooldowns, mana regen, stun, a damage calculator, and lightweight logging to complete the combat foundation.
 
 ---
 
@@ -10,7 +10,7 @@
 
 ### What this plan achieves
 
-Extends the existing tick-based combat stub with a full ability system (Shield Bash, Fireball, Backstab, Heal), tick-based cooldowns, mana regeneration, and a stun effect. Lua scripts gain `use_ability` and `can_use_ability` calls, making combat scriptable beyond the basic `attack()`.
+Extends the existing tick-based combat stub with a full ability system (Shield Bash, Fireball, Backstab, Heal), tick-based cooldowns, mana regeneration, a stun effect, and basic debugging/logging support. Lua scripts gain `use_ability`, `can_use_ability`, and a logging call, making combat scriptable and debuggable beyond the basic `attack()`.
 
 ### Why this matters
 
@@ -43,6 +43,8 @@ The scripting system is the core gameplay loop. Right now players can only move 
 - Damage formula is inlined in `EntityManager.ResolveAttack` — needs extraction
 - `can_use_ability` doesn't exist — scripts can't check readiness before spending resources
 - `PendingAction` only supports `MoveTo` and `Attack` — no ability action type
+- Failed ability attempts are mostly silent — hard to debug invalid target/range/cooldown cases
+- No lightweight combat event log — difficult to verify that fireball, stun, and cooldown behavior actually happened
 
 ---
 
@@ -57,8 +59,10 @@ The scripting system is the core gameplay loop. Right now players can only move 
 - Extend `EntityManager.ResolveActions` to handle ability actions
 - Extract damage formula from `EntityManager` into `DamageCalculator`
 - Expose `use_ability` and `can_use_ability` in `LuaAPI`
+- Expose `log(message)` in `LuaAPI` for script-side debugging
 - Skip stunned entities in `LuaEngine`
 - Update warrior and mage Lua scripts to demonstrate abilities
+- Add a lightweight combat log to record resolved actions and rejected ability attempts
 
 ### New files to create
 
@@ -67,15 +71,17 @@ The scripting system is the core gameplay loop. Right now players can only move 
 | `src/Combat/Ability.cs` | Data class: name, mana cost, cooldown ticks, range, effect type |
 | `src/Combat/AbilityDatabase.cs` | Static registry of all 4 MVP abilities |
 | `src/Combat/DamageCalculator.cs` | `Calculate(attacker, target)` — single source of truth for damage |
+| `src/Combat/CombatLog.cs` | In-memory rolling log of combat/debug events for HUD display and verification |
 
 ### Files to modify
 
 | File path | Changes |
 |---|---|
 | `src/Entities/Entity.cs` | Add `StunTicksRemaining`, `Cooldowns`, `ManaRegenPerTick` |
-| `src/Entities/EntityManager.cs` | Add `UseAbility` action resolution; tick cooldowns + mana regen; extract damage to `DamageCalculator` |
-| `src/Scripting/LuaAPI.cs` | Add `use_ability(name, target)`, `use_ability(name, x, y)`, `can_use_ability(name)` |
+| `src/Entities/EntityManager.cs` | Add `UseAbility` action resolution; tick cooldowns + mana regen; extract damage to `DamageCalculator`; emit combat log events |
+| `src/Scripting/LuaAPI.cs` | Add `use_ability(name, target)`, `use_ability(name, x, y)`, `can_use_ability(name)`, `log(message)` |
 | `src/Scripting/LuaEngine.cs` | Skip entities where `StunTicksRemaining > 0` |
+| `src/Rendering/GameRenderer.cs` | Show recent combat/debug log lines in the HUD |
 | `scripts/characters/warrior_default.lua` | Demonstrate `shield_bash` usage |
 | `scripts/characters/mage_default.lua` | Demonstrate `fireball` usage |
 
@@ -103,6 +109,8 @@ The scripting system is the core gameplay loop. Right now players can only move 
 
 9. **Heal targets an ally table**: Uses `ResolveEntity` like attack does. Restores a fixed amount based on caster's Intelligence stat.
 
+10. **Logging is intentionally lightweight and in-memory**: Keep a rolling list of recent strings for debugging and HUD visibility. No file logging for MVP.
+
 ### Alternatives considered
 
 - **Cooldowns as absolute tick timestamps**: Simpler lookup (`readyAt <= currentTick`) but requires passing `CurrentTick` everywhere. Countdown approach is self-contained on the entity.
@@ -118,6 +126,12 @@ The scripting system is the core gameplay loop. Right now players can only move 
    **Recommendation:** Option (b) — add `LastMoveDirection` to Entity, set it during `ResolveMove`. Low cost, makes the ability meaningful.
 
 2. **Fireball AoE radius**: Not specified in plan. Suggest 2.0 tiles. Confirm?
+
+3. **How much should be logged by default?**
+   - (a) Log only ability attempts, rejections, and successful combat resolutions
+   - (b) Log every action including movement
+
+   **Recommendation:** Option (a) — enough detail to debug combat without flooding the HUD every tick.
 
 ---
 
@@ -366,6 +380,8 @@ Call `TickEntities()` before script execution each tick.
 
 ### Step 11: Update Lua scripts to demonstrate abilities
 
+**Status:** Done
+
 **Actions:**
 
 `scripts/characters/warrior_default.lua`:
@@ -421,6 +437,59 @@ end
 
 ---
 
+### Step 13: Add Lua logging and lightweight combat log
+
+**Actions:**
+
+1. Create `src/Combat/CombatLog.cs`:
+   - Add an in-memory rolling buffer of recent log lines, e.g. max 20-50 entries
+   - Add `Add(string message)`, `IReadOnlyList<string> Recent`, and `Clear()` helpers
+   - Prefix entries with tick count when available, or keep the API flexible enough to pass preformatted strings
+
+2. Update `EntityManager` to emit combat events:
+   - Log successful basic attacks with attacker, target, and damage
+   - Log successful ability resolutions such as:
+     - `Warrior used Shield Bash on Goblin_0 for 18 damage and stunned for 20 ticks`
+     - `Mage cast Fireball at (15.0, 6.0) hitting 2 targets`
+   - Log rejected ability resolutions with a reason when practical:
+     - unknown ability
+     - target invalid/dead
+     - out of range
+     - no targets in AoE
+
+3. Extend `LuaAPI` with a Lua-facing logger:
+   - Add `Log(string message)` or `Debug(string message)`
+   - Register it as `self.log("message")`
+   - Prefix script messages with the entity name for context, e.g. `[Mage] casting fireball`
+
+4. Use the combat log from `LuaAPI` for rejected script requests:
+   - `can_use_ability("fireball")` may stay silent
+   - `use_ability(...)` and `use_ability_at(...)` should log why they are ignored:
+     - ability not found
+     - insufficient mana
+     - on cooldown
+     - invalid target
+     - wrong target type for the ability
+
+5. Update `GameRenderer.DrawHUD` to show recent log lines:
+   - Reserve a small panel or text block for the latest entries
+   - Keep it short enough to avoid obscuring the whole playfield
+
+6. Optionally add one or two `self.log(...)` calls to the sample scripts:
+   - Example: when the mage attempts `fireball`
+   - Keep script logging sparse to avoid per-tick spam
+
+**Files affected:**
+- `src/Combat/CombatLog.cs` (new)
+- `src/Entities/EntityManager.cs`
+- `src/Scripting/LuaAPI.cs`
+- `src/Rendering/GameRenderer.cs`
+- `Game1.cs`
+- `scripts/characters/warrior_default.lua`
+- `scripts/characters/mage_default.lua`
+
+---
+
 ## Connections & Dependencies
 
 ### Files that reference this area
@@ -428,15 +497,18 @@ end
 - `Game1.cs` — orchestrates the tick loop; needs `TickEntities()` added
 - `src/Scripting/LuaEngine.cs` — reads `entity.IsStunned`
 - `src/Scripting/LuaAPI.cs` — calls `AbilityDatabase`, reads entity cooldowns/mana
+- `src/Rendering/GameRenderer.cs` — displays HUD state and should surface recent combat/debug events
 
 ### Updates needed for consistency
 
 - `ScriptQuest-Plan.md` already documents `use_ability` — implementation matches the plan's API surface
 - The HUD in `GameRenderer.DrawHUD` shows HP/Mana — mana will now visibly change, which is good
+- Logging should not replace state visibility in the HUD; both are needed because one shows events and the other shows current state
 
 ### Impact on existing workflows
 
 - Existing scripts (`warrior_default.lua`, `goblin.lua`) continue to work — no breaking changes to existing Lua API
+- Existing scripts can ignore `self.log(...)`; the logging API is additive
 - `ResolveAttack` output is unchanged (same formula, just moved to `DamageCalculator`)
 
 ---
@@ -447,11 +519,14 @@ end
 - [ ] `dotnet run` launches without exceptions
 - [ ] Warrior uses `shield_bash` — goblin freezes for ~2 seconds after being hit
 - [ ] Mage fires `fireball` at goblin cluster — multiple goblins take damage
+- [ ] HUD shows recent combat log lines for attacks, stuns, and fireball hits
+- [ ] `self.log("...")` from a Lua script appears in the on-screen log
 - [ ] Cooldown prevents ability re-use immediately after (verify via log output)
 - [ ] Mana decreases on ability use and regenerates over time (visible in HUD)
 - [ ] Stunned entity does not move or attack during stun duration
 - [ ] Existing goblin scripts (basic attack) still work unchanged
 - [ ] `can_use_ability` returns false when on cooldown or insufficient mana
+- [ ] Invalid `use_ability` calls produce a readable log reason instead of failing silently
 
 ---
 
@@ -461,7 +536,9 @@ end
 2. Lua scripts can call `self.use_ability("shield_bash", target)` and `self.use_ability_at("fireball", x, y)` without error
 3. Mana depletes on ability use and regenerates at `ManaRegenPerTick` per tick
 4. Stunned entities skip `on_tick` execution for the stun duration
-5. `dotnet build` is clean
+5. Players can inspect recent combat/debug events in a lightweight in-game log
+6. Lua scripts can emit debug messages through `self.log(...)`
+7. `dotnet build` is clean
 
 ---
 
@@ -472,3 +549,4 @@ end
 - **Future**: abilities could be loaded from `data/abilities.json` and filtered per character class. The `AbilityDatabase` static class is a stepping stone — the interface (`Get(id)`) won't change.
 - **Future**: `use_ability` currently overwrites `PendingAction` like move/attack do. If we ever want multi-action ticks, this needs a queue. Not needed for MVP.
 - The `use_ability` vs `use_ability_at` split in Lua avoids MoonSharp overload ambiguity and is self-documenting in scripts.
+- Keep the combat log bounded. An unbounded list will become a memory leak and a rendering problem.

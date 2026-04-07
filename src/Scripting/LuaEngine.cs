@@ -20,6 +20,9 @@ public class LuaEngine
         if (string.IsNullOrEmpty(entity.ScriptPath) || !File.Exists(entity.ScriptPath))
             return;
 
+        if (entity.IsStunned)
+            return;
+
         try
         {
             var script = new Script(CoreModules.Preset_SoftSandbox);

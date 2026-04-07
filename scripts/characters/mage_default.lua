@@ -4,15 +4,11 @@ function on_tick(self)
 
     local dist = self.distance_to(target)
 
-    -- Mage keeps distance and attacks from range
-    if dist <= 2.0 then
-        -- Too close, back away
-        self.move_away_from(target)
+    if dist <= 6.0 and self.can_use_ability("fireball") then
+        self.use_ability_at("fireball", target.x, target.y)
     elseif dist <= 5.0 then
-        -- In range, attack
         self.attack(target)
     else
-        -- Move closer
         self.move_towards(target)
     end
 end

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using MoonSharp.Interpreter;
+using ScriptQuest.Combat;
 using ScriptQuest.Entities;
 
 namespace ScriptQuest.Scripting;
@@ -109,6 +110,47 @@ public class LuaAPI
         };
     }
 
+    public bool CanUseAbility(string abilityId)
+    {
+        var ability = AbilityDatabase.Get(abilityId);
+        if (ability == null)
+            return false;
+
+        return !_self.IsOnCooldown(abilityId) && _self.Stats.Mana >= ability.ManaCost;
+    }
+
+    public void UseAbilityOnTarget(string abilityId, Table targetTable)
+    {
+        var ability = AbilityDatabase.Get(abilityId);
+        if (ability == null || !CanUseAbility(abilityId))
+            return;
+
+        var targetEntity = GetEntityFromTable(targetTable);
+        if (targetEntity == null)
+            return;
+
+        _self.PendingAction = new EntityAction
+        {
+            Type = ActionType.UseAbility,
+            AbilityId = abilityId,
+            AbilityTarget = targetEntity
+        };
+    }
+
+    public void UseAbilityAtPosition(string abilityId, double x, double y)
+    {
+        var ability = AbilityDatabase.Get(abilityId);
+        if (ability == null || ability.EffectType != AbilityEffectType.AoEAtPosition || !CanUseAbility(abilityId))
+            return;
+
+        _self.PendingAction = new EntityAction
+        {
+            Type = ActionType.UseAbility,
+            AbilityId = abilityId,
+            AbilityPosition = new Vector2((float)x, (float)y)
+        };
+    }
+
     // === Helpers ===
 
     private void SetMoveAction(Vector2 target)
@@ -183,6 +225,9 @@ public class LuaAPI
 
         // Combat
         self["attack"] = (Action<Table>)SetAttackAction;
+        self["can_use_ability"] = (Func<string, bool>)CanUseAbility;
+        self["use_ability"] = (Action<string, Table>)UseAbilityOnTarget;
+        self["use_ability_at"] = (Action<string, double, double>)UseAbilityAtPosition;
 
         // Entity info
         self["id"] = _self.Id;

@@ -88,7 +88,7 @@ public class GameRenderer
         {
             var color = entity.IsAlive ? Color.White : Color.Gray;
             string status = entity.IsAlive
-                ? $"{entity.Name} [{entity.Team}] HP:{entity.Stats.Hp}/{entity.Stats.MaxHp} Pos:({entity.Position.X:F1},{entity.Position.Y:F1})"
+                ? $"{entity.Name} [{entity.Team}] HP:{entity.Stats.Hp}/{entity.Stats.MaxHp} Mana:{entity.Stats.Mana}/{entity.Stats.MaxMana} Stun:{entity.StunTicksRemaining} Pos:({entity.Position.X:F1},{entity.Position.Y:F1})"
                 : $"{entity.Name} [DEAD]";
             _spriteBatch.DrawString(_font, status, new Vector2(10, y), color);
             y += 16;

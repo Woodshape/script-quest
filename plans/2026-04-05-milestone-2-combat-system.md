@@ -75,7 +75,7 @@ The scripting system is the core gameplay loop. Right now players can only move 
 | `src/Entities/Entity.cs` | Add `StunTicksRemaining`, `Cooldowns`, `ManaRegenPerTick` |
 | `src/Entities/EntityManager.cs` | Add `UseAbility` action resolution; tick cooldowns + mana regen; extract damage to `DamageCalculator` |
 | `src/Scripting/LuaAPI.cs` | Add `use_ability(name, target)`, `use_ability(name, x, y)`, `can_use_ability(name)` |
-| `src/Scripting/LuaEngine.cs` | Skip entities where `StunTicksRemaining > 0`; decrement stun counter |
+| `src/Scripting/LuaEngine.cs` | Skip entities where `StunTicksRemaining > 0` |
 | `scripts/characters/warrior_default.lua` | Demonstrate `shield_bash` usage |
 | `scripts/characters/mage_default.lua` | Demonstrate `fireball` usage |
 
@@ -125,6 +125,8 @@ The scripting system is the core gameplay loop. Right now players can only move 
 
 ### Step 1: Create `src/Combat/DamageCalculator.cs`
 
+**Status:** Done
+
 Extract the damage formula from `EntityManager.ResolveAttack` into a static class.
 
 **Actions:**
@@ -137,6 +139,8 @@ Extract the damage formula from `EntityManager.ResolveAttack` into a static clas
 ---
 
 ### Step 2: Create `src/Combat/Ability.cs`
+
+**Status:** Done
 
 Define the `Ability` data class and `AbilityEffectType` enum.
 
@@ -161,6 +165,8 @@ Define the `Ability` data class and `AbilityEffectType` enum.
 
 ### Step 3: Create `src/Combat/AbilityDatabase.cs`
 
+**Status:** Done
+
 Static registry with the 4 MVP abilities.
 
 **Actions:**
@@ -183,6 +189,8 @@ Static registry with the 4 MVP abilities.
 
 ### Step 4: Extend `Entity.cs`
 
+**Status:** Done
+
 Add stun state, cooldown tracking, mana regen rate, and last move direction.
 
 **Actions:**
@@ -200,6 +208,8 @@ Add stun state, cooldown tracking, mana regen rate, and last move direction.
 
 ### Step 5: Extend `ActionType` and `EntityAction`
 
+**Status:** Done
+
 Add `UseAbility` action type with ability id and positional/entity target support.
 
 **Actions:**
@@ -215,6 +225,8 @@ Add `UseAbility` action type with ability id and positional/entity target suppor
 ---
 
 ### Step 6: Extend `EntityManager`
+
+**Status:** Done
 
 Add mana regen + cooldown tick-down, update `ResolveMove` to track direction, update `ResolveAttack` to use `DamageCalculator`, and add `ResolveAbility`.
 
@@ -263,7 +275,10 @@ Add mana regen + cooldown tick-down, update `ResolveMove` to track direction, up
 
 ### Step 7: Update `LuaEngine.cs`
 
+**Status:** Done
+
 Skip script execution for stunned entities.
+Stun countdown remains in `EntityManager.TickEntities()`; `LuaEngine` only gates `on_tick` execution.
 
 **Actions:**
 - In `ExecuteScript`, add early return if `entity.IsStunned`
@@ -278,6 +293,8 @@ Skip script execution for stunned entities.
 ---
 
 ### Step 8: Extend `LuaAPI.cs`
+
+**Status:** Done
 
 Add `can_use_ability` and `use_ability` (two variants) to the self table.
 
@@ -315,6 +332,8 @@ Add `can_use_ability` and `use_ability` (two variants) to the self table.
 
 ### Step 9: Update `Game1.cs`
 
+**Status:** Done
+
 Call `TickEntities()` before script execution each tick.
 
 **Actions:**
@@ -334,6 +353,8 @@ Call `TickEntities()` before script execution each tick.
 ---
 
 ### Step 10: Add `ManaRegenPerTick` to `Stats.cs`
+
+**Status:** Done
 
 **Actions:**
 - Add `public int ManaRegenPerTick { get; set; } = 1`

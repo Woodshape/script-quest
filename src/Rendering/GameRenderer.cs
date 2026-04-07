@@ -1,6 +1,8 @@
 using System;
+using System.Linq;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using ScriptQuest.Combat;
 using ScriptQuest.Entities;
 
 namespace ScriptQuest.Rendering;
@@ -78,7 +80,7 @@ public class GameRenderer
             new Vector2(x + size / 2f - nameSize.X / 2f, barY - 16), Color.White);
     }
 
-    public void DrawHUD(EntityManager entityManager, int tickCount)
+    public void DrawHUD(EntityManager entityManager, CombatLog combatLog, int tickCount)
     {
         int y = 10;
         _spriteBatch.DrawString(_font, $"Tick: {tickCount}", new Vector2(10, y), Color.Yellow);
@@ -92,6 +94,31 @@ public class GameRenderer
                 : $"{entity.Name} [DEAD]";
             _spriteBatch.DrawString(_font, status, new Vector2(10, y), color);
             y += 16;
+        }
+
+        DrawCombatLog(combatLog);
+    }
+
+    private void DrawCombatLog(CombatLog combatLog)
+    {
+        var entries = combatLog.Recent.TakeLast(10).ToList();
+        if (entries.Count == 0)
+            return;
+
+        const int panelX = 10;
+        const int lineHeight = 16;
+        const int panelWidth = 980;
+        int panelHeight = 10 + (entries.Count * lineHeight) + 10;
+        int panelY = 768 - panelHeight - 10;
+
+        DrawRect(panelX, panelY, panelWidth, panelHeight, new Color(0, 0, 0, 180));
+        _spriteBatch.DrawString(_font, "Combat Log", new Vector2(panelX + 8, panelY + 6), Color.Orange);
+
+        int textY = panelY + 24;
+        foreach (var entry in entries)
+        {
+            _spriteBatch.DrawString(_font, entry, new Vector2(panelX + 8, textY), Color.LightGray);
+            textY += lineHeight;
         }
     }
 

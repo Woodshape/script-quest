@@ -5,6 +5,7 @@ function on_tick(self)
     local dist = self.distance_to(target)
 
     if dist <= 1.5 and self.can_use_ability("shield_bash") then
+        self.log("using shield_bash on " .. target.name)
         self.use_ability("shield_bash", target)
     elseif dist <= 1.5 then
         self.attack(target)

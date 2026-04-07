@@ -112,22 +112,27 @@ public class LuaAPI
 
     public bool CanUseAbility(string abilityId)
     {
-        var ability = AbilityDatabase.Get(abilityId);
-        if (ability == null)
-            return false;
-
-        return !_self.IsOnCooldown(abilityId) && _self.Stats.Mana >= ability.ManaCost;
+        return GetUsableAbility(abilityId, logFailures: false) != null;
     }
 
     public void UseAbilityOnTarget(string abilityId, Table targetTable)
     {
-        var ability = AbilityDatabase.Get(abilityId);
-        if (ability == null || !CanUseAbility(abilityId))
+        var ability = GetUsableAbility(abilityId, logFailures: true);
+        if (ability == null)
             return;
+
+        if (ability.EffectType == AbilityEffectType.AoEAtPosition)
+        {
+            _entityManager.CombatLog.Add($"[Lua:{_self.Name}] {ability.Name} requires a position target");
+            return;
+        }
 
         var targetEntity = GetEntityFromTable(targetTable);
         if (targetEntity == null)
+        {
+            _entityManager.CombatLog.Add($"[Lua:{_self.Name}] {ability.Name} ignored because the target was invalid");
             return;
+        }
 
         _self.PendingAction = new EntityAction
         {
@@ -139,9 +144,15 @@ public class LuaAPI
 
     public void UseAbilityAtPosition(string abilityId, double x, double y)
     {
-        var ability = AbilityDatabase.Get(abilityId);
-        if (ability == null || ability.EffectType != AbilityEffectType.AoEAtPosition || !CanUseAbility(abilityId))
+        var ability = GetUsableAbility(abilityId, logFailures: true);
+        if (ability == null)
             return;
+
+        if (ability.EffectType != AbilityEffectType.AoEAtPosition)
+        {
+            _entityManager.CombatLog.Add($"[Lua:{_self.Name}] {ability.Name} requires an entity target");
+            return;
+        }
 
         _self.PendingAction = new EntityAction
         {
@@ -149,6 +160,11 @@ public class LuaAPI
             AbilityId = abilityId,
             AbilityPosition = new Vector2((float)x, (float)y)
         };
+    }
+
+    public void Log(string message)
+    {
+        _entityManager.CombatLog.Add($"[Lua:{_self.Name}] {message}");
     }
 
     // === Helpers ===
@@ -175,6 +191,33 @@ public class LuaAPI
         }
 
         return null;
+    }
+
+    private Ability? GetUsableAbility(string abilityId, bool logFailures)
+    {
+        var ability = AbilityDatabase.Get(abilityId);
+        if (ability == null)
+        {
+            if (logFailures)
+                _entityManager.CombatLog.Add($"[Lua:{_self.Name}] Unknown ability '{abilityId}'");
+            return null;
+        }
+
+        if (_self.IsOnCooldown(abilityId))
+        {
+            if (logFailures)
+                _entityManager.CombatLog.Add($"[Lua:{_self.Name}] {ability.Name} is on cooldown");
+            return null;
+        }
+
+        if (_self.Stats.Mana < ability.ManaCost)
+        {
+            if (logFailures)
+                _entityManager.CombatLog.Add($"[Lua:{_self.Name}] {ability.Name} needs {ability.ManaCost} mana");
+            return null;
+        }
+
+        return ability;
     }
 
     private Table EntitiesToTable(Script script, List<Entity> entities)
@@ -228,6 +271,7 @@ public class LuaAPI
         self["can_use_ability"] = (Func<string, bool>)CanUseAbility;
         self["use_ability"] = (Action<string, Table>)UseAbilityOnTarget;
         self["use_ability_at"] = (Action<string, double, double>)UseAbilityAtPosition;
+        self["log"] = (Action<string>)Log;
 
         // Entity info
         self["id"] = _self.Id;

@@ -108,7 +108,10 @@ public class Game1 : Game
         // Process tick
         if (_tickManager.Update(gameTime))
         {
-            // 1. Run Lua scripts for all living entities
+            // 1. Tick combat state before scripts make decisions.
+            _entityManager.TickEntities();
+
+            // 2. Run Lua scripts for all living entities
             foreach (var entity in _entityManager.Entities)
             {
                 if (entity.IsAlive)
@@ -117,10 +120,10 @@ public class Game1 : Game
                 }
             }
 
-            // 2. Resolve all actions
+            // 3. Resolve all actions
             _entityManager.ResolveActions(TickManager.TickInterval);
 
-            // 3. Clamp positions to arena
+            // 4. Clamp positions to arena
             _arena.ClampPositions(_entityManager);
         }
 

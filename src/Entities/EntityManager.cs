@@ -137,30 +137,40 @@ public class EntityManager
     private void ResolveAbility(Entity caster, EntityAction action)
     {
         var ability = AbilityDatabase.Get(action.AbilityId);
-        if (ability == null) return;
+        if (ability == null)
+            return;
+
+        if (caster.IsOnCooldown(ability.Id) || caster.Stats.Mana < ability.ManaCost)
+            return;
+
+        bool abilityResolved = ability.EffectType switch
+        {
+            AbilityEffectType.MeleeAttack or AbilityEffectType.RangedAttack
+                => ResolveAbilityTargeted(caster, action.AbilityTarget, ability),
+            AbilityEffectType.AoEAtPosition
+                => ResolveAbilityAoE(caster, action.AbilityPosition, ability),
+            AbilityEffectType.Heal
+                => ResolveAbilityHeal(caster, action.AbilityTarget, ability),
+            _ => false
+        };
+
+        if (!abilityResolved)
+            return;
 
         caster.Stats.Mana -= ability.ManaCost;
         caster.Cooldowns[ability.Id] = ability.CooldownTicks;
-
-        switch (ability.EffectType)
-        {
-            case AbilityEffectType.MeleeAttack:
-            case AbilityEffectType.RangedAttack:
-                ResolveAbilityTargeted(caster, action.AbilityTarget, ability);
-                break;
-            case AbilityEffectType.AoEAtPosition:
-                ResolveAbilityAoE(caster, action.AbilityPosition, ability);
-                break;
-            case AbilityEffectType.Heal:
-                ResolveAbilityHeal(caster, action.AbilityTarget, ability);
-                break;
-        }
     }
 
-    private void ResolveAbilityTargeted(Entity caster, Entity target, Ability ability)
+    private bool ResolveAbilityTargeted(Entity caster, Entity target, Ability ability)
     {
-        if (target == null || !target.IsAlive) return;
-        if (caster.DistanceTo(target) > ability.Range) return;
+        if (target == null || !target.IsAlive)
+            return false;
+
+        if (target.Team == caster.Team)
+            return false;
+
+        if (caster.DistanceTo(target) > ability.Range)
+            return false;
 
         int damage;
         if (ability.Id == "backstab")
@@ -182,22 +192,43 @@ public class EntityManager
 
         if (ability.StunTicks > 0)
             target.StunTicksRemaining = ability.StunTicks;
+
+        return true;
     }
 
-    private void ResolveAbilityAoE(Entity caster, Vector2 position, Ability ability)
+    private bool ResolveAbilityAoE(Entity caster, Vector2 position, Ability ability)
     {
+        if (Vector2.Distance(caster.Position, position) > ability.Range)
+            return false;
+
         var targets = GetEnemiesOf(caster)
-            .Where(e => Vector2.Distance(e.Position, position) <= ability.AoERadius);
+            .Where(e => Vector2.Distance(e.Position, position) <= ability.AoERadius)
+            .ToList();
+
+        if (targets.Count == 0)
+            return false;
 
         foreach (var target in targets)
             target.Stats.Hp = Math.Max(0, target.Stats.Hp - ability.BaseDamage);
+
+        return true;
     }
 
-    private void ResolveAbilityHeal(Entity caster, Entity target, Ability ability)
+    private bool ResolveAbilityHeal(Entity caster, Entity target, Ability ability)
     {
-        if (target == null || !target.IsAlive) return;
-        if (caster.DistanceTo(target) > ability.Range) return;
+        if (target == null || !target.IsAlive)
+            return false;
+
+        if (target.Team != caster.Team)
+            return false;
+
+        if (caster.DistanceTo(target) > ability.Range)
+            return false;
+
+        if (target.Stats.Hp >= target.Stats.MaxHp)
+            return false;
 
         target.Stats.Hp = Math.Min(target.Stats.MaxHp, target.Stats.Hp + ability.BaseHeal);
+        return true;
     }
 }
